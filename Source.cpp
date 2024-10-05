@@ -5,10 +5,11 @@
 
 //http://retro.hansotten.nl/uploads/andrewjacobs/index.html
 //https://www.c64-wiki.com/wiki/Reset_(Process)
-
+typedef unsigned int uint;
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
 const unsigned int  clear = 0,set=1;
+
 
 struct Memory
 {
@@ -26,7 +27,17 @@ struct Memory
 		}
 	}
 
-}ram;
+	BYTE operator[](WORD address) const
+	{
+		return mem[address];
+	}
+	BYTE& operator[](WORD address) 
+	{
+		return mem[address];
+	}
+	
+
+};
 
 struct CPU
 {
@@ -49,6 +60,13 @@ struct CPU
 		flgoverflow:1,
 		flgnegative:1;
 
+
+	//instruction
+	static constexpr BYTE 
+		INX_LDA = 0xA9;
+
+
+
 	/*
 	
 FCE2   A2 FF      LDX #$FF        ; 
@@ -67,7 +85,7 @@ FCFE   58         CLI             ; clear interrupt
 FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 	
 	*/
-	void hard_reset(Memory &ram)
+	void hard_reset(Memory &memory)
 	{
 		//reset flag
 		flgcarry = clear;
@@ -86,7 +104,45 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 		X = 0;
 		Y = 0;
 
-		ram.initialize();
+		memory.initialize();
+	}
+	BYTE fetch(uint& cycle, Memory _memory)
+	{
+		BYTE chunk = _memory[pc];
+		pc++;
+		cycle--;
+		return chunk;
+
+	}
+	void execute(uint cycle,Memory &mem)
+	{
+		while (cycle > 0)
+		{
+			BYTE inx=fetch(cycle, mem);
+			//decoding 
+			switch (inx)
+			{
+			case INX_LDA:
+				{
+				BYTE operand=fetch(cycle, mem);
+				flgzero = (A == 0);
+				flgnegative = (A & 0b10000000) > 0;
+
+					break;
+				}
+			default:
+				{
+					printf("\ndecoder switch to dafault, no instruction decoded");
+					break;
+				}
+			}
+
+		
+
+
+		}
+
+		return;
 	}
 
 
@@ -102,8 +158,16 @@ int main()
 
 	//printf("%d", _cpu.intrrupt_disable);
 
-	_cpu.hard_reset(ram);
-	printf("\n%d", ram.MEM_MAX_CAP);
+	 Memory memory;
+	_cpu.hard_reset(memory);
+
+	//hardwire programm into memory.
+	memory[0xFFFC] = CPU::INX_LDA;
+	memory[0xFFFD] = (BYTE)10;
+
+
+	printf("\n%d", memory.MEM_MAX_CAP);
+	_cpu.execute(2, memory);
 
 	return 0;
 
