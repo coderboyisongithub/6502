@@ -62,8 +62,11 @@ struct CPU
 
 
 	//instruction
-	static constexpr BYTE 
-		INX_LDA = 0xA9;
+	static constexpr BYTE
+		INX_LDA_IM = 0xA9,
+		INX_LDA_ZP = 0xA5,
+		INX_ASL_ZP =0x06;
+
 
 
 
@@ -122,7 +125,7 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 			//decoding 
 			switch (inx)
 			{
-			case INX_LDA:
+			case INX_LDA_IM:
 				{
 				BYTE operand=fetch(cycle, mem);
 				flgzero = (A == 0);
@@ -130,6 +133,15 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 
 					break;
 				}
+			case INX_LDA_ZP:
+			{
+				BYTE operand = fetch(cycle, mem);
+				flgzero = (A == 0);
+				flgnegative = (A & 0b10000000) > 0;
+
+
+				break;
+			}
 			default:
 				{
 					printf("\ndecoder switch to dafault, no instruction decoded");
@@ -162,12 +174,12 @@ int main()
 	_cpu.hard_reset(memory);
 
 	//hardwire programm into memory.
-	memory[0xFFFC] = CPU::INX_LDA;
+	memory[0xFFFC] = CPU::INX_LDA_ZP;
 	memory[0xFFFD] = (BYTE)10;
 
 
 	printf("\n%d", memory.MEM_MAX_CAP);
-	_cpu.execute(2, memory);
+	_cpu.execute(3, memory);
 
 	return 0;
 
