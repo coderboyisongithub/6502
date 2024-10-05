@@ -10,8 +10,23 @@ typedef unsigned char BYTE;
 typedef unsigned short WORD;
 const unsigned int  clear = 0,set=1;
 
-WORD memory[1024] = { 0 };
+struct Memory
+{
 
+	static constexpr unsigned int MEM_MAX_CAP = 1024 * 64;
+	BYTE mem[MEM_MAX_CAP];
+
+	void initialize()
+	{
+
+
+		for (WORD block = 0; block < 0xFFFF; block++)
+		{
+			mem[block] = 0;
+		}
+	}
+
+}ram;
 
 struct CPU
 {
@@ -52,7 +67,7 @@ FCFE   58         CLI             ; clear interrupt
 FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 	
 	*/
-	void hard_reset()
+	void hard_reset(Memory &ram)
 	{
 		//reset flag
 		flgcarry = clear;
@@ -64,12 +79,14 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 		flgintrrupt_disable = set;
 		
 		pc = 0xFFFC;
-		sp = 0x00FF;
+		sp = 0x0100;
 
 		//initialize general purpose registers
 		A = 0;
 		X = 0;
 		Y = 0;
+
+		ram.initialize();
 	}
 
 
@@ -85,8 +102,8 @@ int main()
 
 	//printf("%d", _cpu.intrrupt_disable);
 
-	_cpu.hard_reset();
-
+	_cpu.hard_reset(ram);
+	printf("\n%d", ram.MEM_MAX_CAP);
 
 	return 0;
 
