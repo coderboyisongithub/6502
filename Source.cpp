@@ -250,7 +250,7 @@ int main()
 	_cpu.hard_reset(memory);
 
 	//hardwire programm into memory.
-	WORD address = 0x4242;
+	WORD address = 0x6161;
 	memory[address++] = CPU::INX_LDA_IM;  //load
 	memory[address++] = (BYTE)10;			
 	memory[address++] = CPU::INX_ASL_ACC; //left shift		flgintrrupt_disable	1 '\x1'	unsigned char
@@ -259,9 +259,9 @@ int main()
 	memory[address++] = 0x002F;
 	//segment 1
 	address = 0xFF99;
-	memory[address++] = CPU::INX_JSR;
-	memory[address++] = 0x42;
-	memory[address++] = 0x42;
+	memory[address++] = CPU::INX_JSR; // function call to 0x6161
+	memory[address++] = 0x61;
+	memory[address++] = 0x61;
 	_cpu.execute(12, memory);
 
 	printf("\n %d", memory[0x002F]);
