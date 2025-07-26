@@ -65,7 +65,12 @@ struct CPU
 	static constexpr BYTE
 		INX_LDA_IM = 0xA9,
 		INX_LDA_ZP = 0xA5,
-		INX_ASL_ZP =0x06;
+		INX_ASL_ACC = 0x0A,
+		INX_LDX_IM = 0xA2,
+		INX_STA_ZP = 0x85,
+		INX_JSR = 0x20;
+		
+
 
 
 
@@ -99,8 +104,9 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 		flgdecimal_mode = clear;
 		flgintrrupt_disable = set;
 		
-		pc = 0xFFFC;
+		pc = 0xFF99;
 		sp = 0x0100;
+
 
 		//initialize general purpose registers
 		A = 0;
@@ -109,12 +115,42 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 
 		memory.initialize();
 	}
+
+	WORD fetchWord(uint& cycle, Memory _memory)
+	{
+		WORD chunkword = _memory[pc];
+		pc++;
+		chunkword |= (_memory[pc] <<8);
+		pc++;
+		cycle-=2;
+		return chunkword;
+	}
+	void writeWord(uint& cycle, WORD address, Memory& _memory, WORD chunk)
+	{
+		_memory[address] = chunk & 0xFF;
+		cycle--;
+		_memory[address+1] = chunk >> 8;
+		cycle--;
+		return;
+	}
 	BYTE fetch(uint& cycle, Memory _memory)
 	{
 		BYTE chunk = _memory[pc];
 		pc++;
 		cycle--;
 		return chunk;
+
+	}
+	BYTE read(uint& cycle,WORD address, Memory _memory)
+	{
+		BYTE chunk = _memory[address];
+		cycle--;
+		return chunk;
+	}
+	void write(uint& cycle, WORD address, Memory& _memory, BYTE chunk)
+	{
+		_memory[address] = chunk;
+		cycle--;
 
 	}
 	void execute(uint cycle,Memory &mem)
@@ -128,6 +164,7 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 			case INX_LDA_IM:
 				{
 				BYTE operand=fetch(cycle, mem);
+				A = operand;
 				flgzero = (A == 0);
 				flgnegative = (A & 0b10000000) > 0;
 
@@ -135,16 +172,55 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 				}
 			case INX_LDA_ZP:
 			{
-				BYTE operand = fetch(cycle, mem);
+				BYTE zeropage_address = fetch(cycle, mem);
+				BYTE data = read(cycle,zeropage_address, mem);
+				flgzero = (A == 0);
+				flgnegative = (A & 0b10000000) > 0;
+			
+				break;
+			}
+			case INX_LDX_IM:
+			{
+				BYTE data = fetch(cycle, mem);
+				X = data;
+				flgzero = (X == 0);
+				flgnegative = (X & 0b10000000) > 0;
+				//cycle--;
+				break;
+				 //cycle--;
+			}
+			case INX_STA_ZP:
+			{
+				BYTE zeropage_addressW = fetch(cycle, mem);
+				write(cycle, zeropage_addressW, mem, A);
+				break;
+				//cycle--;
+
+			}
+
+			case INX_ASL_ACC:
+			{
+
+				A = A << 1;
+
 				flgzero = (A == 0);
 				flgnegative = (A & 0b10000000) > 0;
 
+				break;
+			}
+			case INX_JSR:
+			{
+				WORD jumpAddress = fetchWord(cycle, mem);
+				writeWord(cycle, sp, mem, pc - 1);
+				pc = jumpAddress;
+				cycle--;
 
 				break;
+
 			}
 			default:
 				{
-					printf("\ndecoder switch to dafault, no instruction decoded");
+					printf("\ndecoder switched to default, no instruction decoded");
 					break;
 				}
 			}
@@ -165,7 +241,7 @@ FCFF   6C 00 A0   JMP ($A000)     ; direct to BASIC cold start via vector
 
 int main()
 {
-
+	printf("\n6052 cpu, %d byte(bytesize) %d byte (wordsize)\nMemory:%d KB \n\n", sizeof(BYTE), sizeof(WORD),Memory::MEM_MAX_CAP/1024);
 	//printf("%d", sizeof(0x0 | _cpu.intrrupt_disable));
 
 	//printf("%d", _cpu.intrrupt_disable);
@@ -174,12 +250,21 @@ int main()
 	_cpu.hard_reset(memory);
 
 	//hardwire programm into memory.
-	memory[0xFFFC] = CPU::INX_LDA_ZP;
-	memory[0xFFFD] = (BYTE)10;
+	WORD address = 0x4242;
+	memory[address++] = CPU::INX_LDA_IM;  //load
+	memory[address++] = (BYTE)10;			
+	memory[address++] = CPU::INX_ASL_ACC; //left shift		flgintrrupt_disable	1 '\x1'	unsigned char
 
+	memory[address++] = CPU::INX_STA_ZP; //store
+	memory[address++] = 0x002F;
+	//segment 1
+	address = 0xFF99;
+	memory[address++] = CPU::INX_JSR;
+	memory[address++] = 0x42;
+	memory[address++] = 0x42;
+	_cpu.execute(12, memory);
 
-	printf("\n%d", memory.MEM_MAX_CAP);
-	_cpu.execute(3, memory);
+	printf("\n %d", memory[0x002F]);
 
 	return 0;
 
